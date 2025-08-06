@@ -42,7 +42,8 @@ function createTextElement(text) {
 }
 
 const Neact = {
-    createElement
+    createElement,
+    render,
 }
 
 const element = Neact.createElement(
@@ -55,4 +56,4 @@ const element = Neact.createElement(
 
 // container holds the root DOM element where to render the VDOM
 const container = document.getElementById("root")
-NeactDOM.render(element, container)
+Neact.render(element, container)
