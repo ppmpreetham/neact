@@ -48,6 +48,50 @@ function workLoop(deadline) {
 // start the first loop when the browser is idle
 requestIdleCallback(workLoop);
 
+function performUnitOfWork(fiber) {
+    // if fiber doesn't exist, create it
+    if (!fiber.dom){
+        fiber.dom = createDom(fiber); 
+    }
+
+    // if the fiber has a parent, append the current fiber's DOM node to the parent's DOM node
+    if (fiber.parent) {
+        fiber.parent.dom.appendChild(fiber.dom); // put me inside my parent
+    }
+
+    // all the children that this fiber should create
+    const elements = fiber.props.children
+    let index = 0
+    let prevSibling = null
+
+    while(index < elements.length) {
+        const element = elements[index]
+        const newFiber = {
+            type: element.type,
+            props: element.props,
+            parent: fiber, // who's your daddy?
+            dom: null // created the dom element or not
+        }
+
+        if (index === 0){
+            // if this is their first child, set it as the first child of the fiber
+            fiber.child = newFiber;
+        } else {
+            // if this is not their first child, set the previous sibling's sibling to the new fiber
+            prevSibling.sibling = newFiber;
+        }
+
+        prevSibling = newFiber; // update the previous sibling to the current fiber
+        index++; // move to the next child
+    }
+    if (fiber.child) {
+        // if this fiber has a child, that’s the next unit of work
+        return fiber.child
+    }
+    // if the fiber has no children, return the next sibling to continue the work
+    nextFiber = nextFiber.parent
+}
+
 function createElement(type, props, ...children) {
     // if the type is a string, it is a DOM element, else it is a component
     return {
