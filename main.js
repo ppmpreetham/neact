@@ -19,3 +19,15 @@ function createTextElement(text) {
         }
     };
 }
+
+const Neact = {
+    createElement
+}
+
+const element = Neact.createElement(
+    "div",
+    {
+        id: "div",
+        title: "the great div tag"
+    },
+)
