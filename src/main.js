@@ -1,4 +1,4 @@
-function render(element, container) {
+function createDom(fiber){
     // if the element is a text, create a text node else VDOM element of that type
     const dom = element.type === "TEXT_ELEMENT" ?
         document.createTextNode("") :
@@ -15,6 +15,16 @@ function render(element, container) {
     // recursively render children
     element.props.children.forEach((child) => {render(child, dom)})
     container.appendChild(dom)
+    return dom
+}
+
+function render(element, container) {
+    nextUnitOfWork = {
+        dom: container,
+        props: {
+            children: [element],
+        }
+    }
 }
 
 //=======================================================//
