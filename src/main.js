@@ -46,14 +46,18 @@ const Neact = {
     render,
 }
 
-const element = Neact.createElement(
+/** @jsx Neact.createElement */
+
+const element = (
   // we're using babel to transform JSX into Neact.createElement calls
   <div id="div">
-    <a>this is a link</a>
+    <div>HELLO</div>
     <b />
   </div>
 )
 
 // container holds the root DOM element where to render the VDOM
-const container = document.getElementById("root")
-Neact.render(element, container)
+window.onload = () => {
+  const container = document.getElementById("app");
+  Neact.render(element, container);
+};
