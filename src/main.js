@@ -17,6 +17,27 @@ function render(element, container) {
     container.appendChild(dom)
 }
 
+//=======================================================//
+//==Break down the rendering process into units of work==//
+//=======================================================//
+
+// next task to be performed
+let nextUnitOfWork = null;
+// one small task at a time
+function workLoop(deadline) {
+    // stop if we run out of time
+    let shouldYield = false;
+    // keep doing tasks as long as we have them and time left
+    while (nextUnitOfWork && !shouldYield) {
+        nextUnitOfWork = performUnitOfWork(nextUnitOfWork); // perform the next unit of work
+        shouldYield = deadline.timeRemaining() < 1; // if we have less than 1ms left, we should stop and wait
+    }
+    requestIdleCallback(workLoop); // ask the browser to run workLoop again when it's free
+}
+
+// start the first loop when the browser is idle
+requestIdleCallback(workLoop);
+
 function createElement(type, props, ...children) {
     // if the type is a string, it is a DOM element, else it is a component
     return {
