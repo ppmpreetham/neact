@@ -49,6 +49,16 @@ function commitWork(fiber) {
     }
     const domParent = fiber.parent.dom
     domParent.append(fiber.dom)
+    
+    if(fiber.effectTag === "PLACEMENT" && fiber.dom) {
+        // if this fiber is a placement, we need to append it to the DOM
+        domParent.appendChild(fiber.dom);
+    }
+    if(fiber.effectTag === "UPDATE" && fiber.dom) {
+        // if this fiber is an update, we need to update the properties
+        updateDom(fiber.dom, fiber.alternate.props, fiber.props);
+    }
+    
     commitWork(fiber.child); // commit the child first
     commitWork(fiber.sibling); // then commit the sibling
 }
