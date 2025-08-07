@@ -23,7 +23,8 @@ function render(element, container) {
         dom: container,
         props: {
             children: [element],
-        }
+        },
+        alternate: currentRoot, // reference the previous committed tree for reconciliation
     }
     nextUnitOfWork = wipRoot; // start with the root fiber
 }
@@ -32,13 +33,13 @@ function render(element, container) {
 //==Break down the rendering process into units of work==//
 //=======================================================//
 
-// next task to be performed
-let nextUnitOfWork = null;
-
+let nextUnitOfWork = null; // next task to be performed
 let wipRoot = null; // work in progress root
-
+let currentRoot = null; // current root for reconciliation
+    
 function commitRoot() {
     commitWork(wipRoot.child); // commit the work starting from the first child
+    currentRoot = wipRoot; // for reconciliation
     wipRoot = null; // reset the work in progress root
 }
 
@@ -86,6 +87,30 @@ function performUnitOfWork(fiber) {
 
     // all the children that this fiber should create
     const elements = fiber.props.children
+    reconciliateChildren(fiber, elements); // reconcile the children with the current fiber
+    
+    if (fiber.child) {
+        // if this fiber has a child, that’s the next unit of work
+        return fiber.child
+    }
+    // if the fiber has no children, return the next sibling to continue the work
+    nextFiber = nextFiber.parent
+}
+
+function createElement(type, props, ...children) {
+    // if the type is a string, it is a DOM element, else it is a component
+    return {
+        type,
+        props: {
+            ...props,
+            children: children.map((child) => 
+                typeof child === "object" ? child : createTextElement(child)
+            )
+        }
+    }
+}
+
+function reconciliateChildren(fiber, elements) {
     let index = 0
     let prevSibling = null
 
@@ -108,25 +133,6 @@ function performUnitOfWork(fiber) {
 
         prevSibling = newFiber; // update the previous sibling to the current fiber
         index++; // move to the next child
-    }
-    if (fiber.child) {
-        // if this fiber has a child, that’s the next unit of work
-        return fiber.child
-    }
-    // if the fiber has no children, return the next sibling to continue the work
-    nextFiber = nextFiber.parent
-}
-
-function createElement(type, props, ...children) {
-    // if the type is a string, it is a DOM element, else it is a component
-    return {
-        type,
-        props: {
-            ...props,
-            children: children.map((child) => 
-                typeof child === "object" ? child : createTextElement(child)
-            )
-        }
     }
 }
 
