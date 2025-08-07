@@ -19,12 +19,13 @@ function createDom(fiber){
 }
 
 function render(element, container) {
-    nextUnitOfWork = {
+    wipRoot = {
         dom: container,
         props: {
             children: [element],
         }
     }
+    nextUnitOfWork = wipRoot; // start with the root fiber
 }
 
 //=======================================================//
@@ -33,6 +34,24 @@ function render(element, container) {
 
 // next task to be performed
 let nextUnitOfWork = null;
+
+let wipRoot = null; // work in progress root
+
+function commitRoot() {
+    commitWork(wipRoot.child); // commit the work starting from the first child
+    wipRoot = null; // reset the work in progress root
+}
+
+function commitWork(fiber) {
+    if (!fiber) {
+        return
+    }
+    const domParent = fiber.parent.dom
+    domParent.append(fiber.dom)
+    commitWork(fiber.child); // commit the child first
+    commitWork(fiber.sibling); // then commit the sibling
+}
+
 // one small task at a time
 function workLoop(deadline) {
     // stop if we run out of time
@@ -42,6 +61,12 @@ function workLoop(deadline) {
         nextUnitOfWork = performUnitOfWork(nextUnitOfWork); // perform the next unit of work
         shouldYield = deadline.timeRemaining() < 1; // if we have less than 1ms left, we should stop and wait
     }
+
+    if(!nextUnitOfWork && wipRoot) {
+        // if we have no more work, we can commit the changes to the DOM
+        commitRoot();
+    }
+
     requestIdleCallback(workLoop); // ask the browser to run workLoop again when it's free
 }
 
