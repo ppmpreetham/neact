@@ -63,11 +63,22 @@ function commitWork(fiber) {
     commitWork(fiber.sibling); // then commit the sibling
 }
 
+const isEvent = (key) => key.startsWith("on"); // check if a property is an event
 const isProperty = key => key !== "children"; // check if a property is not "children"
 const isGone = (prev, next) => key => !(key in next); // check if a property is gone in the new props
 const isNew = (prev, next) => key => prev[key] !== next[key]; // check if a property is new in the new props
 
 function updateDom(dom, prevProps, nextProps) {
+
+    // remove old event listeners that are not in the new props
+    Object.keys(prevProps)
+        .filter(isEvent) // filter out event properties
+        .filter(key => !(key in nextProps) || isNew(prevProps, nextProps)(key)) // filter out properties that are not in the new props or have changed
+        .forEach(name => {
+            const eventType = name.toLowerCase().substring(2); // get the event type by removing on (e.g. "onClick" -> "click")
+            dom.removeEventListener(eventType, prevProps[name]); // remove the old event listener
+        });
+
     // remove old properties that are not in the new props
     Object.keys(prevProps)
         .filter(isProperty) // filter out "children" property
@@ -83,6 +94,15 @@ function updateDom(dom, prevProps, nextProps) {
         .forEach(name => {
             dom[name] = nextProps[name]; // set the new property on the DOM element
         });
+
+    // add new event listeners that are in the new props
+    Object.keys(nextProps)
+    .filter(isEvent) // filter out event properties
+    .filter(isNew(prevProps, nextProps)) // filter out properties that are not in the previous props
+    .forEach(name => {
+        const eventType = name.toLowerCase().substring(2); // get the event type by removing on (e.g. "onClick" -> "click")
+        dom.addEventListener(eventType, nextProps[name]); // add the new event listener
+    });
 }
 
 // one small task at a time
