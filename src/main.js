@@ -88,7 +88,7 @@ function performUnitOfWork(fiber) {
     // all the children that this fiber should create
     const elements = fiber.props.children
     reconciliateChildren(fiber, elements); // reconcile the children with the current fiber
-    
+
     if (fiber.child) {
         // if this fiber has a child, that’s the next unit of work
         return fiber.child
@@ -110,17 +110,44 @@ function createElement(type, props, ...children) {
     }
 }
 
-function reconciliateChildren(fiber, elements) {
+function reconciliateChildren(wipFiber, elements) {
     let index = 0
     let prevSibling = null
+    let oldFiber = wipFiber.alternate && wipFiber.alternate.child; // get the previous fiber's first child
 
-    while(index < elements.length) {
+    while(index < elements.length || oldFiber !== null) {
         const element = elements[index]
-        const newFiber = {
-            type: element.type,
-            props: element.props,
-            parent: fiber, // who's your daddy?
-            dom: null // created the dom element or not
+        let newFiber = null;
+
+        const sameType = oldFiber && element && oldFiber.type === element.type;
+
+        if (sameType) {
+            // if the type is the same, we can reuse the existing dom node
+            newFiber = {
+                type: oldFiber.type,
+                props: element.props,
+                dom: oldFiber.dom, // reuse the existing DOM node
+                parent: wipFiber, // set the parent to the current fiber
+                alternate: oldFiber, // reference the previous fiber for reconciliation
+                effectTag: "UPDATE", // mark this fiber as needing an update
+            }
+        }
+        
+        if (element && !sameType) {
+            // if the type is different, create a new fiber
+            newFiber = {
+                type: element.type,
+                props: element.props,
+                dom: null, // we will create the DOM node later
+                parent: wipFiber, // set the parent to the current fiber
+                alternate: null, // no previous fiber to reference
+                effectTag: "PLACEMENT", // mark this fiber as needing to be placed
+            }
+        }
+
+        if (oldFiber) {
+            // if we have an old fiber, we can reuse it
+            oldFiber = oldFiber.sibling; // move to the next sibling
         }
 
         if (index === 0){
