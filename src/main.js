@@ -53,6 +53,28 @@ function commitWork(fiber) {
     commitWork(fiber.sibling); // then commit the sibling
 }
 
+const isProperty = key => key !== "children"; // check if a property is not "children"
+const isGone = (prev, next) => key => !(key in next); // check if a property is gone in the new props
+const isNew = (prev, next) => key => prev[key] !== next[key]; // check if a property is new in the new props
+
+function updateDom(dom, prevProps, nextProps) {
+    // remove old properties that are not in the new props
+    Object.keys(prevProps)
+        .filter(isProperty) // filter out "children" property
+        .filter(isGone(prevProps, nextProps)) // filter out properties that are not in the new props
+        .forEach(name => {
+            dom[name] = "";
+        });
+    
+    // set new properties that are in the new props
+    Object.keys(nextProps)
+        .filter(isProperty) // filter out "children" property
+        .filter(isNew(prevProps, nextProps)) // filter out properties that are not in the previous props
+        .forEach(name => {
+            dom[name] = nextProps[name]; // set the new property on the DOM element
+        });
+}
+
 // one small task at a time
 function workLoop(deadline) {
     // stop if we run out of time
