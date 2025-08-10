@@ -1,11 +1,14 @@
-# NEACT
-A minimalistic React-like framework built with Vite and Babel.
+# NEACT (Neat-React)
+A minimalistic React-like framework built with Vite and Babel to create web applications using a component-based architecture inspired by Preact.
 
 ## Features
-- **Recoinciliation**: Efficiently updates the DOM by comparing the current state with the previous state.
+- **Reconciliation**: Efficiently updates the DOM by comparing the current state with the previous state.
 - **Component-Based**: Build reusable components with a simple API.
-- **JSX Support**: Write components using JSX syntax, which is transformed by Babel.
-- **Development Server**: Use Vite for a fast development experience with hot module replacement.
+- **State Management**: Manage component state with a straightforward approach.
+- **Event Handling**: Attach event listeners to components for user interactions.
+- **DOM Manipulation**: Directly manipulate the DOM with a virtual DOM diffing algorithm.
+- **Babel Transpilation**: Use modern JavaScript features and JSX syntax, transpiled by Babel for compatibility with older browsers.
+- **Vite Integration**: Leverage Vite for a fast development experience with features like hot module replacement and a development server.
 
 ## Usage
 1. **Install Dependencies**: Run `npm install` to install all necessary dependencies.

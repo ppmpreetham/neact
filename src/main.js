@@ -204,7 +204,7 @@ function reconciliateChildren(wipFiber, elements) {
 
         if (index === 0){
             // if this is their first child, set it as the first child of the fiber
-            fiber.child = newFiber;
+            wipFiber.child = newFiber;
         } else {
             // if this is not their first child, set the previous sibling's sibling to the new fiber
             prevSibling.sibling = newFiber;
