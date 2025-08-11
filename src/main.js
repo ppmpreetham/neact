@@ -127,6 +127,13 @@ function workLoop(deadline) {
 requestIdleCallback(workLoop);
 
 function performUnitOfWork(fiber) {
+    // check if fiber is a function component to update FC or the host
+    const isFunctionComponent = (fiber) => fiber.type instanceof Function;
+    if (isFunctionComponent(fiber)) {
+        updateFunctionComponent(fiber); // if the fiber is a function component, update it
+    } else {
+        updateHostComponent(fiber); // if the fiber is a host component, update it
+    }
     // if fiber doesn't exist, create it
     if (!fiber.dom){
         fiber.dom = createDom(fiber); 
@@ -147,6 +154,17 @@ function performUnitOfWork(fiber) {
     }
     // if the fiber has no children, return the next sibling to continue the work
     nextFiber = nextFiber.parent
+}
+
+function updateFunctionComponent(fiber) {
+    const children = [fiber.type(fiber.props)]; // call the function component with the props to get the children
+    reconciliateChildren(fiber, children);
+}
+function updateHostComponent(fiber) {
+    if(!fiber.dom){
+        fiber.dom = createDom(fiber); // create the DOM node for the fiber
+    }
+    reconciliateChildren(fiber, fiber.props.children); // reconcile the children with the current fiber
 }
 
 function createElement(type, props, ...children) {
@@ -231,15 +249,14 @@ const Neact = {
     render,
 }
 
+function App(props){
+    return <h1>Hello, {props.name}</h1>
+}
+
 /** @jsx Neact.createElement */
 
-const element = (
-  // we're using babel to transform JSX into Neact.createElement calls
-  <div id="div">
-    <div>HELLO</div>
-    <b />
-  </div>
-)
+// we're using babel to transform JSX into Neact.createElement calls
+const element = <App name="World" />
 
 // container holds the root DOM element where to render the VDOM
 window.onload = () => {
