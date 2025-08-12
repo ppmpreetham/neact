@@ -32,6 +32,7 @@ function render(element, container) {
         },
         alternate: currentRoot, // reference the previous committed tree for reconciliation
     }
+    deletions = [] // deletions array for fibers to delete
     nextUnitOfWork = wipRoot; // start with the root fiber
 }
 
@@ -43,6 +44,7 @@ let nextUnitOfWork = null; // next task to be performed
 let wipRoot = null; // work in progress root
 let currentRoot = null; // current root for reconciliation
     
+let deletions = null; // fibers to delete
 function commitRoot() {
     commitWork(wipRoot.child); // commit the work starting from the first child
     currentRoot = wipRoot; // for reconciliation
