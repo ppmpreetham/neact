@@ -123,17 +123,22 @@ function updateDom(dom, prevProps, nextProps) {
 
 // one small task at a time
 function workLoop(deadline) {
-    // stop if we run out of time
-    let shouldYield = false;
-    // keep doing tasks as long as we have them and time left
-    while (nextUnitOfWork && !shouldYield) {
-        nextUnitOfWork = performUnitOfWork(nextUnitOfWork); // perform the next unit of work
-        shouldYield = deadline.timeRemaining() < 1; // if we have less than 1ms left, we should stop and wait
-    }
+    try{
 
-    if(!nextUnitOfWork && wipRoot) {
-        // if we have no more work, we can commit the changes to the DOM
-        commitRoot();
+        // stop if we run out of time
+        let shouldYield = false;
+        // keep doing tasks as long as we have them and time left
+        while (nextUnitOfWork && !shouldYield) {
+            nextUnitOfWork = performUnitOfWork(nextUnitOfWork); // perform the next unit of work
+            shouldYield = deadline.timeRemaining() < 1; // if we have less than 1ms left, we should stop and wait
+        }
+        
+        if(!nextUnitOfWork && wipRoot) {
+            // if we have no more work, we can commit the changes to the DOM
+            commitRoot();
+        }
+    } catch (error) {
+        console.error("Error occurred in workLoop:", error);
     }
 
     requestIdleCallback(workLoop); // ask the browser to run workLoop again when it's free
@@ -192,15 +197,25 @@ function useState(initial){
     })
 
     const setState = action => {
+        console.log("State update called", { currentState: hook.state });
+    
         hook.queue.push(action); // add the action to the queue
-        wipRoot = {
-            dom: currentRoot.dom, // keep the current root's DOM node
-            props: currentRoot.props, // keep the current root's props
-            alternate: currentRoot // keep the current root's alternate
+        
+        // Make sure currentRoot exists before trying to re-render
+        if (!currentRoot) {
+            console.error("Cannot update state: no current root");
+            return;
         }
-        deletions = []; // deletions array for re-render
+        
+        wipRoot = {
+            dom: currentRoot.dom,
+            props: currentRoot.props,
+            alternate: currentRoot
+        };
+        deletions = [];
         nextUnitOfWork = wipRoot;
-    }
+        console.log("Queued re-render");
+    };
     wipFiber.hooks.push(hook); // add the hook to the work in progress fiber's hooks array
     hookIndex+= 1;
     return [hook.state, setState]
@@ -232,10 +247,6 @@ function reconciliateChildren(wipFiber, elements) {
     let prevSibling = null
     let oldFiber = wipFiber.alternate && wipFiber.alternate.child;
 
-    // Safety counter to prevent infinite loops
-    let safetyCounter = 0;
-    const MAX_ITERATIONS = 10000; 
-
     // Convert elements to array if needed
     const elementsArray = Array.isArray(elements) ? elements : 
                           elements ? [elements] : [];
@@ -246,67 +257,74 @@ function reconciliateChildren(wipFiber, elements) {
         hasOldFiber: !!oldFiber
     });
 
-    while ((index < elementsArray.length || oldFiber !== null) && safetyCounter < MAX_ITERATIONS) {
-        safetyCounter++;
+    // Process elements and existing fibers
+    while (index < elementsArray.length || oldFiber !== null) {
         const element = elementsArray[index];
         let newFiber = null;
 
         const sameType = oldFiber && element && oldFiber.type === element.type;
 
         if (sameType) {
-            // if the type is the same, we can reuse the existing dom node
+            // If types match, update existing fiber
             newFiber = {
                 type: oldFiber.type,
                 props: element.props,
-                dom: oldFiber.dom, // reuse the existing DOM node
-                parent: wipFiber, // set the parent to the current fiber
-                alternate: oldFiber, // reference the previous fiber for reconciliation
-                effectTag: "UPDATE", // mark this fiber as needing an update
+                dom: oldFiber.dom,
+                parent: wipFiber,
+                alternate: oldFiber,
+                effectTag: "UPDATE",
             }
         }
         
         if (element && !sameType) {
-            // if the type is different, create a new fiber
+            // New element with different type - create new fiber
             newFiber = {
                 type: element.type,
                 props: element.props,
-                dom: null, // we will create the DOM node later
-                parent: wipFiber, // set the parent to the current fiber
-                alternate: null, // no previous fiber to reference
-                effectTag: "PLACEMENT", // mark this fiber as needing to be placed
+                dom: null,
+                parent: wipFiber,
+                alternate: null,
+                effectTag: "PLACEMENT",
             }
         }
 
         if (oldFiber && !sameType) {
-            // if we have an old fiber and types don't match, mark for deletion
+            // Old fiber with no matching element - delete
             oldFiber.effectTag = "DELETION";
             deletions.push(oldFiber);
         }
 
         if (oldFiber) {
-            // if we have an old fiber, we can reuse it
-            oldFiber = oldFiber.sibling; // move to the next sibling
+            // IMPORTANT: Always advance oldFiber regardless of whether we used it
+            oldFiber = oldFiber.sibling;
         }
 
         if (newFiber) {
-            if (index === 0){
-                // if this is their first child, set it as the first child of the fiber
+            if (index === 0) {
                 wipFiber.child = newFiber;
             } else if (prevSibling) {
-                // if this is not their first child and we have a previous sibling, set the previous sibling's sibling to the new fiber
                 prevSibling.sibling = newFiber;
             }
-            prevSibling = newFiber; // update the previous sibling to the current fiber
+            prevSibling = newFiber;
         }
         
-        index++;
-    }
-    
-    // Log warning if we hit the safety limit
-    if (safetyCounter >= MAX_ITERATIONS) {
-        console.error("Infinite loop detected in reconciliation!");
-        console.error("Fiber type:", wipFiber.type);
-        console.error("Elements length:", elementsArray.length);
+        // CRITICAL: Only increment index if we actually have an element
+        if (element) {
+            index++;
+        } else {
+            // If we don't have an element but have oldFiber, we need to break if we've processed all elements
+            // don't keep looping when we have no more elements
+            if (index >= elementsArray.length) {
+                // We've processed all elements, now just handle remaining oldFibers
+                if (oldFiber) {
+                    oldFiber.effectTag = "DELETION";
+                    deletions.push(oldFiber);
+                    oldFiber = oldFiber.sibling;
+                    continue;
+                }
+                break;
+            }
+        }
     }
 }
 
