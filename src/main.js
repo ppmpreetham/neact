@@ -47,9 +47,16 @@ function commitWork(fiber) {
     if (!fiber) {
         return
     }
+    // get the parent fiber and its corresponding DOM node
+    let domParentFiber = fiber.parent
+    // find the closest DOM node
+    while(!domParentFiber.dom) {
+        // go up the tree until we find a DOM node
+        domParentFiber = domParentFiber.parent
+    }
+    // get the DOM node for the parent fiber
     const domParent = fiber.parent.dom
-    domParent.append(fiber.dom)
-    
+
     if(fiber.effectTag === "PLACEMENT" && fiber.dom) {
         // if this fiber is a placement, we need to append it to the DOM
         domParent.appendChild(fiber.dom);
