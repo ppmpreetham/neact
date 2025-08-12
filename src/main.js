@@ -43,9 +43,10 @@ function render(element, container) {
 let nextUnitOfWork = null; // next task to be performed
 let wipRoot = null; // work in progress root
 let currentRoot = null; // current root for reconciliation
-    
 let deletions = null; // fibers to delete
+
 function commitRoot() {
+    deletions.forEach(commitWork); // commit deletions before everything
     commitWork(wipRoot.child); // commit the work starting from the first child
     currentRoot = wipRoot; // for reconciliation
     wipRoot = null; // reset the work in progress root
@@ -151,9 +152,7 @@ function performUnitOfWork(fiber) {
     }
 
     // all the children that this fiber should create
-    const elements = fiber.props.children
-    reconciliateChildren(fiber, elements); // reconcile the children with the current fiber
-
+    
     if (fiber.child) {
         // if this fiber has a child, that's the next unit of work
         return fiber.child
@@ -199,17 +198,20 @@ function useState(initial){
             props: currentRoot.props, // keep the current root's props
             alternate: currentRoot // keep the current root's alternate
         }
+        deletions = []; // deletions array for re-render
         nextUnitOfWork = wipRoot;
     }
     wipFiber.hooks.push(hook); // add the hook to the work in progress fiber's hooks array
     hookIndex+= 1;
     return [hook.state, setState]
 }
+
 function updateHostComponent(fiber) {
     if(!fiber.dom){
         fiber.dom = createDom(fiber); // create the DOM node for the fiber
     }
-    reconciliateChildren(fiber, fiber.props.children); // reconcile the children with the current fiber
+    const children = fiber.props.children || []; // get the children from the props
+    reconciliateChildren(fiber, children); // reconcile the children with the current fiber
 }
 
 function createElement(type, props, ...children) {
@@ -228,10 +230,25 @@ function createElement(type, props, ...children) {
 function reconciliateChildren(wipFiber, elements) {
     let index = 0
     let prevSibling = null
-    let oldFiber = wipFiber.alternate && wipFiber.alternate.child; // get the previous fiber's first child
+    let oldFiber = wipFiber.alternate && wipFiber.alternate.child;
 
-    while(index < elements.length || oldFiber !== null) {
-        const element = elements[index]
+    // Safety counter to prevent infinite loops
+    let safetyCounter = 0;
+    const MAX_ITERATIONS = 10000; 
+
+    // Convert elements to array if needed
+    const elementsArray = Array.isArray(elements) ? elements : 
+                          elements ? [elements] : [];
+    
+    console.log("Starting reconciliation", {
+        fiberType: wipFiber.type,
+        elementsLength: elementsArray.length,
+        hasOldFiber: !!oldFiber
+    });
+
+    while ((index < elementsArray.length || oldFiber !== null) && safetyCounter < MAX_ITERATIONS) {
+        safetyCounter++;
+        const element = elementsArray[index];
         let newFiber = null;
 
         const sameType = oldFiber && element && oldFiber.type === element.type;
@@ -260,21 +277,36 @@ function reconciliateChildren(wipFiber, elements) {
             }
         }
 
+        if (oldFiber && !sameType) {
+            // if we have an old fiber and types don't match, mark for deletion
+            oldFiber.effectTag = "DELETION";
+            deletions.push(oldFiber);
+        }
+
         if (oldFiber) {
             // if we have an old fiber, we can reuse it
             oldFiber = oldFiber.sibling; // move to the next sibling
         }
 
-        if (index === 0){
-            // if this is their first child, set it as the first child of the fiber
-            wipFiber.child = newFiber;
-        } else {
-            // if this is not their first child, set the previous sibling's sibling to the new fiber
-            prevSibling.sibling = newFiber;
+        if (newFiber) {
+            if (index === 0){
+                // if this is their first child, set it as the first child of the fiber
+                wipFiber.child = newFiber;
+            } else if (prevSibling) {
+                // if this is not their first child and we have a previous sibling, set the previous sibling's sibling to the new fiber
+                prevSibling.sibling = newFiber;
+            }
+            prevSibling = newFiber; // update the previous sibling to the current fiber
         }
-
-        prevSibling = newFiber; // update the previous sibling to the current fiber
-        index++; // move to the next child
+        
+        index++;
+    }
+    
+    // Log warning if we hit the safety limit
+    if (safetyCounter >= MAX_ITERATIONS) {
+        console.error("Infinite loop detected in reconciliation!");
+        console.error("Fiber type:", wipFiber.type);
+        console.error("Elements length:", elementsArray.length);
     }
 }
 
@@ -296,9 +328,8 @@ const Neact = {
 }
 
 function App(props){
-    const [state, setState] = Neact.useState(0);
-    return <h1 onClick={() => setState(state + 1)}>Hello, {props.name}. You clicked {state} times.</h1>
-}
+    const [state, setState] = Neact.useState(1);
+    return <h1 onClick={() => setState(prevState => prevState + 1)}>Hello, {props.name}. You clicked {state} times.</h1>}
 
 /** @jsx Neact.createElement */
 
