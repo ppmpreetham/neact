@@ -182,10 +182,26 @@ function useState(initial){
     const oldHook = wipFiber.alternate && wipFiber.alternate.hooks && wipFiber.alternate.hooks[hookIndex]; // get the previous hook if it exists
     const hook = {
         state: oldHook ? oldHook.state : initial, // if the previous hook exists, use its state, else use the initial state
+        queue: []
+    }
+
+    const actions = oldHook ? oldHook.queue : []; // get the actions from the previous hook if it exists
+    actions.forEach(action => {
+        hook.state = action(hook.state); // apply each action to the state
+    })
+
+    const setState = action => {
+        hook.queue.push(action); // add the action to the queue
+        wipRoot = {
+            dom: currentRoot.dom, // keep the current root's DOM node
+            props: currentRoot.props, // keep the current root's props
+            alternate: currentRoot // keep the current root's alternate
+        }
+        nextUnitOfWork = wipRoot;
     }
     wipFiber.hooks.push(hook); // add the hook to the work in progress fiber's hooks array
     hookIndex+= 1;
-    return [hook.state]
+    return [hook.state, setState]
 }
 function updateHostComponent(fiber) {
     if(!fiber.dom){
@@ -274,10 +290,12 @@ function createTextElement(text) {
 const Neact = {
     createElement,
     render,
+    useState,
 }
 
 function App(props){
-    return <h1>Hello, {props.name}</h1>
+    const [state, setState] = Neact.useState(0);
+    return <h1 onClick={() => setState(state + 1)}>Hello, {props.name}. You clicked {state} times.</h1>
 }
 
 /** @jsx Neact.createElement */
