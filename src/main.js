@@ -1,20 +1,26 @@
 function createDom(fiber){
     // if the element is a text, create a text node else VDOM element of that type
-    const dom = element.type === "TEXT_ELEMENT" ?
+    const dom = fiber.type === "TEXT_ELEMENT" ?
         document.createTextNode("") :
-        document.createElement(element.type)
+        document.createElement(fiber.type)
 
-    // set properties on the DOM element except for "children"
-    const isProperty = (key) => key !== "children"
-    Object.keys(element.props)
+    // set properties on the DOM element except for "children" and events
+    const isProperty = (key) => key !== "children" && !key.startsWith("on")
+    Object.keys(fiber.props)
     .filter(isProperty)
     .forEach((name) => {
-        dom[name] = element.props[name]
+        dom[name] = fiber.props[name]
     })
 
-    // recursively render children
-    element.props.children.forEach((child) => {render(child, dom)})
-    container.appendChild(dom)
+    // set event listeners
+    const isEvent = (key) => key.startsWith("on")
+    Object.keys(fiber.props)
+    .filter(isEvent)
+    .forEach((name) => {
+        const eventType = name.toLowerCase().substring(2)
+        dom.addEventListener(eventType, fiber.props[name])
+    })
+
     return dom
 }
 
@@ -55,7 +61,7 @@ function commitWork(fiber) {
         domParentFiber = domParentFiber.parent
     }
     // get the DOM node for the parent fiber
-    const domParent = fiber.parent.dom
+    const domParent = domParentFiber.dom
 
     if(fiber.effectTag === "PLACEMENT" && fiber.dom) {
         // if this fiber is a placement, we need to append it to the DOM
@@ -141,26 +147,24 @@ function performUnitOfWork(fiber) {
     } else {
         updateHostComponent(fiber); // if the fiber is a host component, update it
     }
-    // if fiber doesn't exist, create it
-    if (!fiber.dom){
-        fiber.dom = createDom(fiber); 
-    }
-
-    // if the fiber has a parent, append the current fiber's DOM node to the parent's DOM node
-    if (fiber.parent) {
-        fiber.parent.dom.appendChild(fiber.dom); // put me inside my parent
-    }
 
     // all the children that this fiber should create
     const elements = fiber.props.children
     reconciliateChildren(fiber, elements); // reconcile the children with the current fiber
 
     if (fiber.child) {
-        // if this fiber has a child, that’s the next unit of work
+        // if this fiber has a child, that's the next unit of work
         return fiber.child
     }
+    
     // if the fiber has no children, return the next sibling to continue the work
-    nextFiber = nextFiber.parent
+    let nextFiber = fiber
+    while (nextFiber) {
+        if (nextFiber.sibling) {
+            return nextFiber.sibling
+        }
+        nextFiber = nextFiber.parent
+    }
 }
 
 function updateFunctionComponent(fiber) {
