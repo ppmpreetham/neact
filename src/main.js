@@ -167,9 +167,25 @@ function performUnitOfWork(fiber) {
     }
 }
 
+let wipFiber = null; // work in progress fiber
+let hookIndex = null; // current hook index
+
 function updateFunctionComponent(fiber) {
+    wipFiber = fiber; // set the work in progress fiber
+    hookIndex = 0; // reset the hook index
+    wipFiber.hooks = []; // initialize the hooks array for this fiber
     const children = [fiber.type(fiber.props)]; // call the function component with the props to get the children
     reconciliateChildren(fiber, children);
+}
+
+function useState(initial){
+    const oldHook = wipFiber.alternate && wipFiber.alternate.hooks && wipFiber.alternate.hooks[hookIndex]; // get the previous hook if it exists
+    const hook = {
+        state: oldHook ? oldHook.state : initial, // if the previous hook exists, use its state, else use the initial state
+    }
+    wipFiber.hooks.push(hook); // add the hook to the work in progress fiber's hooks array
+    hookIndex+= 1;
+    return [hook.state]
 }
 function updateHostComponent(fiber) {
     if(!fiber.dom){
